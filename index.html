@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portafolio y Horario - Jean</title>
+    <style>
+        body {
+            background-color: #000000;
+            font-family: sans-serif;
+        }
+
+        .titulo {
+            color: #fff;
+        }
+
+        .contenedor {
+            display: flex;
+            justify-content: center;
+            border: 1px solid white;
+        }
+
+        .contenedor-principal {
+            display: flex;
+            border: 1px solid white;
+            height: auto;
+        }
+
+        .parrafo {
+            color: #fff;
+            margin-left: 50px;
+            margin-right: 50px;
+        }
+
+        .contenedor-imagen {
+            display: flex;
+            border: 1px solid white;
+            margin: 10px;
+        }
+
+        .contenedor-parrafo {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid white;
+            margin: 10px;
+            width: 70%;
+        }
+
+        .p-nombre {
+            color: #fff;
+            font-size: 40px;
+            text-align: center;
+        }
+
+        .botones_1 {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .boton_1 {
+            display: inline-block;
+            padding: 10px 20px;
+            color: #fff;
+            background: transparent;
+            border: 2px solid #39ff14;
+            border-radius: 6px;
+            text-decoration: none;
+            box-shadow: 0 0 8px rgba(57,255,20,0.6), inset 0 0 10px rgba(57,255,20,0.15);
+            margin: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .boton_1:active {
+            transform: scale(0.95);
+        }
+
+        .horario {
+            color: #FFF;
+            text-align: center;
+            border: 18px solid white;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+
+        .tabla {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid green;
+            background-color: green;
+        }
+
+        .tabla th, .tabla td {
+            border: 1px solid white;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .oculto {
+            display: none !important;
+        }
+
+        .modo-hacker th {
+            background-color: #87CEFA !important;
+            color: #000 !important;
+        }
+
+        .modo-hacker td {
+            background-color: #FFD700 !important;
+            color: #000 !important;
+        }
+    </style>
+</head>
+<body>
+  <header>
+   <div class="contenedor">
+      <h1 class="titulo">portafolio</h1>
+   </div>
+  </header>
+  <br>
+  <div class="contenedor-principal">
+    <div class="contenedor-imagen">
+      <img src="atl.jpg" alt="Jean">
+    </div>
+   
+    <div class="contenedor-parrafo">
+      <h1 class="p-nombre">Jean</h1>
+      <p class="parrafo">Hola soy jean  pierre y me gusta el futbol, también me gusta dormir mucho, cuando estoy aburrido me gusta organizar mientras escucho musica a todo volumen</p>
+      <div class="botones_1">
+        <button class="boton_1" id="btn-toggle">Boton 1</button>
+        <button class="boton_1" id="btn-color">Boton 2</button>
+        <button class="boton_1" id="btn-registro">Boton 3</button>
+      </div>
+    </div>
+  </div>
+  <br>
+ 
+  <div class="horario" id="horario">
+    <h1 class="h-titulo">Horario</h1>
+    <table class="tabla" id="tabla-clases">
+      <tr>
+        <th>Hora</th>
+        <th>Dia 1</th>
+        <th>Dia 2</th>
+        <th>Dia 3</th>
+        <th>Dia 4</th>
+        <th>Dia 5</th>
+        <th>Dia 6</th>
+        <th>Dia 7</th>
+      </tr>
+      <tr>
+        <td>06:45 am - 06:50 am</td>
+        <td>Entrada</td>
+        <td>Entrada</td>
+        <td>Entrada</td>
+        <td>Entrada</td>
+        <td>Entrada</td>
+        <td>Entrada</td>
+        <td>Entrada</td>
+      </tr>
+      <tr>
+        <td>06:50 am - 07:45 am</td>
+        <td>BIOLOGÍA</td>
+        <td>EDUCACIÓN FÍSICA</td>
+        <td>ESPAÑOL</td>
+        <td>FRANCES</td>
+        <td>BIOLOGÍA</td>
+        <td>EDUCACIÓN linguistica</td>
+        <td>ENGLISH</td>
+      </tr>
+      <tr>
+        <td>07:45 am - 08:40 am</td>
+        <td>MATEMÁTICACAS</td>
+        <td>SOCIALES</td>
+        <td>SOCIALES</td>
+        <td>ESPAÑOL</td>
+        <td>MATEMÁTICACAS</td>
+        <td>ENGLISH</td>
+        <td>SOCIALES</td>
+      </tr>
+      <tr>
+        <td>08:40 am - 09:35 am</td>
+        <td>Descanso</td>
+        <td>Descanso</td>
+        <td>Descanso</td>
+        <td>Descanso</td>
+        <td>Descanso</td>
+        <td>Descanso</td>
+        <td>Descanso</td>
+      </tr>
+      <tr>
+        <td>09:35 am - 10:30 am</td>
+        <td>ESPAÑOL</td>
+        <td>FILOSOFÍA</td>
+        <td>MATEMÁTICAS</td>
+        <td>INFORMÁTICA</td>
+        <td>ENGLISH</td>
+        <td>FRANCES</td>
+        <td>INFORMÁTICA</td>
+      </tr>
+      <tr>
+        <td>10:30 am - 11:25 am</td>
+        <td>SOCIALES</td>
+        <td>MATEMÁTICAS</td>
+        <td>FÍSICA</td>
+        <td>ENGLISH</td>
+        <td>SOCIALES</td>
+        <td>MATEMÁTICAS</td>
+        <td>QUÍMICA</td>
+      </tr>
+      <tr>
+        <td>11:25 am - 12:20 pm</td>
+        <td>FRANCES</td>
+        <td>SKILLS</td>
+        <td>DANZAS</td>
+        <td>CLASE DE PHONK</td>
+        <td>DIBUJO</td>
+        <td>FUTBOL</td>
+        <td>BIOLOGÍA</td>
+      </tr>
+      <tr>
+        <td>12:20 pm - 01:15 pm</td>
+        <td>CÁTEDRA PARA LA PAZ</td>
+        <td>ESPAÑOL</td>
+        <td>PILEO</td>
+        <td>CLASE DE 67</td>
+        <td>DIBUJO</td>
+        <td>PILEO</td>
+        <td>ESPAÑOL</td>
+      </tr>
+      <tr>
+        <td>01:15 pm - 02:10 pm</td>
+        <td>ENGLISH</td>
+        <td>ENGLISH</td>
+        <td>BIOLOGÍA</td>
+        <td>MATEMÁTICAS</td>
+        <td>DANZAS</td>
+        <td>INFORMÁTICA</td>
+        <td>MATEMÁTICAS</td>
+      </tr>
+    </table>
+  </div>
+
+  <script>
+    const horario = document.getElementById('horario');
+    const btnToggle = document.getElementById('btn-toggle');
+    const btnColor = document.getElementById('btn-color');
+    const btnRegistro = document.getElementById('btn-registro');
+    const miTabla = document.getElementById('tabla-clases');
+
+    horario.style.display = 'none';
+
+    btnToggle.addEventListener('click', () => {
+        horario.style.display = horario.style.display === 'none' ? 'block' : 'none';
+    });
+
+    btnColor.addEventListener('click', () => {
+        miTabla.classList.toggle('modo-hacker');
+    });
+
+    btnRegistro.addEventListener('click', () => {
+        window.location.href = 'Registro.html';
+    });
+  </script>
+</body>
+</html>
