@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego de Futbol - Gamer Zone</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #000000;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .marco {
+            position: relative;
+            border: 3px solid #39ff14;
+            box-shadow: 0 0 20px rgba(57, 255, 20, 0.5);
+        }
+
+        canvas {
+            display: block;
+            cursor: pointer;
+        }
+
+        .capa {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.85);
+            color: #39ff14;
+            text-align: center;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .oculto {
+            display: none;
+        }
+
+        .titulo-juego {
+            font-size: 48px;
+            letter-spacing: 6px;
+            text-shadow: 0 0 15px rgba(57, 255, 20, 0.8);
+            animation: parpadeo 1.5s infinite;
+        }
+
+        .instrucciones {
+            color: #7FFF00;
+            font-size: 15px;
+            line-height: 1.9;
+            letter-spacing: 1px;
+        }
+
+        .instrucciones b {
+            color: #ffffff;
+        }
+
+        .boton {
+            padding: 16px 40px;
+            color: #fff;
+            background: transparent;
+            border: 2px solid #39ff14;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 20px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            box-shadow: 0 0 8px rgba(57, 255, 20, 0.6);
+            cursor: pointer;
+            transition: all 0.25s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .boton:hover {
+            background: #39ff14;
+            color: #000;
+            transform: translateY(-3px);
+            box-shadow: 0 0 25px rgba(57, 255, 20, 0.9);
+        }
+
+        .boton:active {
+            transform: scale(0.95);
+        }
+
+        .grupo-botones {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        @keyframes parpadeo {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+    </style>
+</head>
+<body>
+    <div class="marco">
+        <canvas id="cancha" width="800" height="500"></canvas>
+
+        <div class="capa" id="pantalla-inicio">
+            <h1 class="titulo-juego">FUTBOL GOAL</h1>
+            <p class="instrucciones">
+                <b>MOVIMIENTO:</b> flechas o teclas W A S D (2D)<br>
+                <b>PATEAR:</b> toca el balon y lo pateas<br>
+                <b>PENAL:</b> letra G (1 por nivel)<br>
+                <b>TIRO LIBRE:</b> letra L (1 por nivel)<br>
+                <b>EFECTO:</b> T (derecha) / Y (izquierda)<br>
+                <b>PAUSA:</b> letra P<br><br>
+                Mete la cantidad de goles de cada nivel<br>
+                antes de que se acabe el tiempo.<br>
+                Cada nivel es mas dificil!
+            </p>
+            <button class="boton" id="btn-jugar">Jugar</button>
+        </div>
+
+        <div class="capa oculto" id="pantalla-gameover">
+            <h1 class="titulo-juego">GAME OVER</h1>
+            <p class="instrucciones" id="texto-final">Nivel alcanzado: 1</p>
+            <div class="grupo-botones">
+                <button class="boton" id="btn-reintentar">Reintentar</button>
+                <a class="boton" href="menu.html">Volver al menu</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('cancha');
+        const ctx = canvas.getContext('2d');
+        const ANCHO = 800, ALTO = 500;
+
+        const GOAL_W = 160;
+        const GOAL_X = (ANCHO - GOAL_W) / 2;
+        const GOAL_Y = 26;
+        const KEEPER_Y = 78;
+        const KEEPER_R = 27;
+        const DEF_Y_MIN = 210;
+        const DEF_Y_MAX = 360;
+        const POTENCIA = 8.5;
+        const TIEMPO_NIVEL = 45;
+
+        const UNIFORMES = [
+            { nombre: 'VERDE', camiseta: '#39ff14', pantalon: '#0f5c06', accento: '#0f5c06', numero: '10' },
+            { nombre: 'DORADO', camiseta: '#ffd700', pantalon: '#8a6d00', accento: '#8a6d00', numero: '9' },
+            { nombre: 'ROJO', camiseta: '#ff4444', pantalon: '#7a0000', accento: '#ff8888', numero: '7' },
+            { nombre: 'AZUL', camiseta: '#4488ff', pantalon: '#0033aa', accento: '#0033aa', numero: '11' },
+            { nombre: 'NARANJA', camiseta: '#ff8c00', pantalon: '#8a4b00', accento: '#ffffff', numero: '8' },
+            { nombre: 'BLANCO', camiseta: '#ffffff', pantalon: '#666666', accento: '#ffd700', numero: '20' },
+            { nombre: 'ROSA', camiseta: '#ff69b4', pantalon: '#8a2d5b', accento: '#ffffff', numero: '6' },
+            { nombre: 'MORADO', camiseta: '#b026ff', pantalon: '#5c0f80', accento: '#ffffff', numero: '5' }
+        ];
+        let uniformeActual = 0;
+
+        let nivel = 1;
+        let goles = 0;
+        let golesNecesarios = 3;
+        let tiempo = TIEMPO_NIVEL;
+        let estado = 'inicio';
+        let pausa = false;
+        let animId = null;
+        let ultimoTiempo = 0;
+
+        const jugador = { x: ANCHO / 2, y: ALTO - 70, r: 18, vx: 0, vy: 0, vel: 4.5 };
+        const balon = { x: ANCHO / 2, y: ALTO / 2, vx: 0, vy: 0, r: 11, maxV: 11 };
+        const portero = { x: ANCHO / 2, dir: 1, vel: 2 };
+        let defensores = [];
+        let particulas = [];
+        let mensaje = { texto: '', tiempo: 0 };
+        let setPiece = null;
+        let disparado = false;
+        let setPieceFin = 0;
+        let penales = 1;
+        let libres = 1;
+        let efecto = 0;
+        let rastro = [];
+
+        const teclas = {};
+
+        document.addEventListener('keydown', e => {
+            const k = e.code || '';
+            teclas[k] = true;
+            if (k === 'KeyP' || e.key === 'p' || e.key === 'P') pausa = !pausa;
+            if (k === 'KeyG' || e.key === 'g' || e.key === 'G') iniciarSetPiece('penal');
+            if (k === 'KeyL' || e.key === 'l' || e.key === 'L') iniciarSetPiece('libre');
+            if (k === 'KeyY' || e.key === 'y' || e.key === 'Y') efecto = -1;
+            if (k === 'KeyT' || e.key === 't' || e.key === 'T') efecto = 1;
+        });
+        document.addEventListener('keyup', e => { teclas[e.code] = false; });
+
+        document.getElementById('btn-jugar').addEventListener('click', e => { e.stopPropagation(); iniciarJuego(); });
+        document.getElementById('btn-reintentar').addEventListener('click', e => { e.stopPropagation(); iniciarJuego(); });
+
+        function iniciarJuego() {
+            document.getElementById('pantalla-inicio').classList.add('oculto');
+            document.getElementById('pantalla-gameover').classList.add('oculto');
+            nivel = 1;
+            resetNivel();
+            estado = 'jugando';
+            pausa = false;
+            if (!animId) {
+                animId = requestAnimationFrame(bucle);
+                ultimoTiempo = performance.now();
+            }
+        }
+
+        function resetNivel() {
+            jugador.x = ANCHO / 2;
+            jugador.y = ALTO - 70;
+            balon.x = ANCHO / 2;
+            balon.y = ALTO / 2;
+            balon.vx = (Math.random() - 0.5) * 2;
+            balon.vy = (Math.random() - 0.5) * 2;
+            rastro = [];
+            efecto = 0;
+
+            portero.x = ANCHO / 2;
+            portero.dir = 1;
+            portero.vel = 1.5 + nivel * 0.7;
+
+            crearDefensores();
+            setPiece = null;
+            disparado = false;
+            setPieceFin = 0;
+            penales = 1;
+            libres = 1;
+
+            golesNecesarios = 2 + nivel;
+            goles = 0;
+            tiempo = TIEMPO_NIVEL;
+            mostrarMensaje('NIVEL ' + nivel, 90);
+        }
+
+        function crearDefensores() {
+            const nDef = Math.min(1 + Math.floor(nivel / 2), 5);
+            defensores = [];
+            for (let i = 0; i < nDef; i++) {
+                const paso = Math.max(nDef - 1, 1);
+                defensores.push({
+                    x: 130 + i * ((ANCHO - 260) / paso),
+                    y: DEF_Y_MIN + Math.random() * (DEF_Y_MAX - DEF_Y_MIN),
+                    dir: Math.random() < 0.5 ? -1 : 1,
+                    vel: 0.8 + nivel * 0.4 + Math.random() * 0.5
+                });
+            }
+        }
+
+        function iniciarSetPiece(tipo) {
+            if (estado !== 'jugando' || pausa || setPiece) return;
+            if (tipo === 'penal' && penales <= 0) { mostrarMensaje('Sin penales', 50); return; }
+            if (tipo === 'libre' && libres <= 0) { mostrarMensaje('Sin tiros libres', 50); return; }
+            if (tipo === 'penal') penales--; else libres--;
+
+            setPiece = tipo;
+            disparado = false;
+            setPieceFin = 0;
+
+            if (tipo === 'penal') {
+                defensores = [];
+                balon.x = ANCHO / 2;
+                balon.y = 300;
+                balon.vx = 0;
+                balon.vy = 0;
+                jugador.x = ANCHO / 2;
+                jugador.y = 345;
+                mostrarMensaje('PENAL!', 80);
+            } else {
+                defensores = [];
+                for (let i = 0; i < 3; i++) {
+                    defensores.push({ x: ANCHO / 2 - 60 + i * 60, y: 240, dir: 1, vel: 0 });
+                }
+                balon.x = ANCHO / 2;
+                balon.y = 380;
+                balon.vx = 0;
+                balon.vy = 0;
+                jugador.x = ANCHO / 2;
+                jugador.y = 430;
+                mostrarMensaje('TIRO LIBRE!', 80);
+            }
+        }
+
+        function update() {
+            let mx = 0, my = 0;
+            if (teclas['ArrowLeft'] || teclas['KeyA']) mx = -1;
+            if (teclas['ArrowRight'] || teclas['KeyD']) mx = 1;
+            if (teclas['ArrowUp'] || teclas['KeyW']) my = -1;
+            if (teclas['ArrowDown'] || teclas['KeyS']) my = 1;
+            const len = Math.hypot(mx, my) || 1;
+            jugador.vx = (mx / len) * jugador.vel;
+            jugador.vy = (my / len) * jugador.vel;
+            jugador.x = Math.max(20, Math.min(ANCHO - 20, jugador.x + jugador.vx));
+            jugador.y = Math.max(150, Math.min(ALTO - 20, jugador.y + jugador.vy));
+
+            const velPortero = 1.5 + nivel * 0.65 + Math.abs(balon.vx) * 0.25;
+            const apuntando = balon.vy < -1 && balon.y < KEEPER_Y + 160 && balon.y > GOAL_Y;
+            if (apuntando) {
+                const diff = balon.x - portero.x;
+                portero.x += Math.sign(diff) * Math.min(Math.abs(diff), velPortero);
+                portero.dir = diff > 0 ? 1 : -1;
+            } else {
+                portero.x += portero.vel * portero.dir;
+            }
+            const limite = GOAL_W / 2 - 10;
+            if (portero.x > ANCHO / 2 + limite) { portero.x = ANCHO / 2 + limite; portero.dir = -1; }
+            if (portero.x < ANCHO / 2 - limite) { portero.x = ANCHO / 2 - limite; portero.dir = 1; }
+
+            if (!setPiece) {
+                for (const d of defensores) {
+                    d.y += d.vel * d.dir;
+                    if (d.y > DEF_Y_MAX) { d.y = DEF_Y_MAX; d.dir = -1; }
+                    if (d.y < DEF_Y_MIN) { d.y = DEF_Y_MIN; d.dir = 1; }
+                }
+            }
+
+            balon.vx *= 0.985;
+            balon.vy *= 0.985;
+            const sp = Math.hypot(balon.vx, balon.vy);
+            if (sp > balon.maxV) {
+                balon.vx = (balon.vx / sp) * balon.maxV;
+                balon.vy = (balon.vy / sp) * balon.maxV;
+            }
+            balon.x += balon.vx;
+            balon.y += balon.vy;
+
+            if (efecto !== 0) {
+                balon.vx += efecto * 0.4;
+                efecto *= 0.985;
+                if (Math.hypot(balon.vx, balon.vy) < 0.6) efecto = 0;
+            }
+
+            rastro.push({ x: balon.x, y: balon.y });
+            if (rastro.length > 14) rastro.shift();
+
+            if (balon.x < balon.r) { balon.x = balon.r; balon.vx = Math.abs(balon.vx) * 0.75; }
+            if (balon.x > ANCHO - balon.r) { balon.x = ANCHO - balon.r; balon.vx = -Math.abs(balon.vx) * 0.75; }
+
+            if (balon.y <= GOAL_Y + balon.r) {
+                if (balon.x > GOAL_X && balon.x < GOAL_X + GOAL_W && balon.vy < 0) {
+                    gol();
+                    return;
+                }
+                balon.y = GOAL_Y + balon.r;
+                balon.vy = Math.abs(balon.vy) * 0.75;
+            }
+            if (balon.y > ALTO - balon.r) { balon.y = ALTO - balon.r; balon.vy = -Math.abs(balon.vy) * 0.75; }
+
+            const dx = balon.x - jugador.x;
+            const dy = balon.y - jugador.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < jugador.r + balon.r) {
+                const nx = dx / dist || (Math.random() - 0.5);
+                const ny = dy / dist || (Math.random() - 0.5);
+                balon.vx = nx * POTENCIA + jugador.vx * 0.7;
+                balon.vy = ny * POTENCIA + jugador.vy * 0.7;
+                chispas(balon.x, balon.y);
+                if (setPiece && !disparado) {
+                    disparado = true;
+                    setPieceFin = 210;
+                }
+            }
+
+            const kdx = balon.x - portero.x;
+            const kdy = balon.y - portero.y;
+            const kdist = Math.hypot(kdx, kdy);
+            if (kdist < KEEPER_R + balon.r) {
+                const nx = kdx / kdist || 0;
+                const ny = kdy / kdist || -1;
+                balon.x = portero.x + nx * (KEEPER_R + balon.r + 1);
+                balon.y = portero.y + ny * (KEEPER_R + balon.r + 1);
+                if (sp > 5) mostrarMensaje('Portero atrapa!', 50);
+                balon.vx = nx * 8;
+                balon.vy = ny * 8;
+            }
+
+            for (const d of defensores) {
+                const ddx = balon.x - d.x;
+                const ddy = balon.y - d.y;
+                const ddist = Math.hypot(ddx, ddy);
+                if (ddist < 16 + balon.r) {
+                    const nx = ddx / ddist || 0;
+                    const ny = ddy / ddist || -1;
+                    balon.vx = nx * 9;
+                    balon.vy = ny * 9;
+                    if (sp > 5) mostrarMensaje('Defensor bloquea!', 50);
+                }
+            }
+
+            for (let i = particulas.length - 1; i >= 0; i--) {
+                const p = particulas[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vida--;
+                if (p.vida <= 0) particulas.splice(i, 1);
+            }
+
+            if (mensaje.tiempo > 0) mensaje.tiempo--;
+
+            if (setPieceFin > 0) {
+                setPieceFin--;
+                if (setPieceFin <= 0) {
+                    setPiece = null;
+                    disparado = false;
+                    balon.x = ANCHO / 2;
+                    balon.y = ALTO / 2;
+                    balon.vx = (Math.random() - 0.5) * 2;
+                    balon.vy = (Math.random() - 0.5) * 2;
+                    rastro = [];
+                    efecto = 0;
+                    crearDefensores();
+                    mostrarMensaje('Juego libre', 40);
+                }
+            }
+
+            if (estado === 'jugando' && !pausa && !setPiece) {
+                tiempo -= 1 / 60;
+                if (tiempo <= 0) {
+                    tiempo = 0;
+                    estado = 'gameover';
+                    document.getElementById('texto-final').innerHTML =
+                        'Nivel alcanzado: <b>' + nivel + '</b><br>Goles marcados: <b>' + goles + '</b>';
+                    document.getElementById('pantalla-gameover').classList.remove('oculto');
+                }
+            }
+        }
+
+        function gol() {
+            goles++;
+            explosion(balon.x, GOAL_Y + 20);
+            mostrarMensaje('GOOOOOL!', 70);
+            balon.vx = 0;
+            balon.vy = 0;
+            setPiece = null;
+            disparado = false;
+            setPieceFin = 0;
+            if (goles >= golesNecesarios) {
+                estado = 'transicion';
+                setTimeout(() => {
+                    nivel++;
+                    resetNivel();
+                    estado = 'jugando';
+                }, 1400);
+            } else {
+                balon.x = ANCHO / 2;
+                balon.y = ALTO / 2;
+                balon.vx = (Math.random() - 0.5) * 2;
+                balon.vy = (Math.random() - 0.5) * 2;
+                rastro = [];
+                efecto = 0;
+            }
+        }
+
+        function mostrarMensaje(texto, tiempo) {
+            mensaje.texto = texto;
+            mensaje.tiempo = tiempo;
+        }
+
+        function chispas(x, y) {
+            for (let i = 0; i < 8; i++) {
+                particulas.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6,
+                    vida: 20,
+                    color: '#ffffff'
+                });
+            }
+        }
+
+        function explosion(x, y) {
+            for (let i = 0; i < 24; i++) {
+                particulas.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 9,
+                    vy: (Math.random() - 0.5) * 9 - 2,
+                    vida: 40 + Math.random() * 20,
+                    color: Math.random() < 0.5 ? '#39ff14' : '#ffffff'
+                });
+            }
+        }
+
+        function dibujarCancha() {
+            ctx.fillStyle = '#0a5c12';
+            ctx.fillRect(0, 0, ANCHO, ALTO);
+
+            ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, ALTO / 2);
+            ctx.lineTo(ANCHO, ALTO / 2);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(ANCHO / 2, ALTO / 2, 55, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(ANCHO / 2, ALTO / 2, 4, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,255,255,0.35)';
+            ctx.fill();
+
+            ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+            ctx.beginPath();
+            ctx.rect(GOAL_X - 40, GOAL_Y, GOAL_W + 80, 90);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.rect(GOAL_X - 10, GOAL_Y, GOAL_W + 20, 26);
+            ctx.stroke();
+        }
+
+        function dibujarMeta() {
+            ctx.fillStyle = '#e8e8e8';
+            ctx.fillRect(GOAL_X, GOAL_Y, GOAL_W, 34);
+
+            ctx.strokeStyle = '#aaaaaa';
+            ctx.lineWidth = 1;
+            for (let x = GOAL_X; x < GOAL_X + GOAL_W; x += 8) {
+                for (let y = GOAL_Y; y < GOAL_Y + 34; y += 8) {
+                    ctx.strokeRect(x, y, 8, 8);
+                }
+            }
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(GOAL_X - 6, GOAL_Y - 4, GOAL_W + 12, 6);
+            ctx.fillRect(GOAL_X - 6, GOAL_Y + 30, GOAL_W + 12, 6);
+            ctx.fillRect(GOAL_X - 6, GOAL_Y, 6, 34);
+            ctx.fillRect(GOAL_X + GOAL_W, GOAL_Y, 6, 34);
+        }
+
+        function dibujarJugador(x, y, color, borde, numero) {
+            ctx.fillStyle = color;
+            ctx.strokeStyle = borde;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(x, y - 18, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.roundRect(x - 14, y - 10, 28, 32, 8);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 12px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillText(numero, x, y + 8);
+        }
+
+        function dibujarDefensores() {
+            for (const d of defensores) {
+                ctx.fillStyle = '#e84a2a';
+                ctx.strokeStyle = '#7a1f0d';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(d.x, d.y - 15, 9, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.roundRect(d.x - 12, d.y - 8, 24, 28, 7);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 10px Courier New';
+                ctx.textAlign = 'center';
+                ctx.fillText('RIVAL', d.x, d.y + 8);
+            }
+        }
+
+        function dibujarRastro() {
+            if (efecto === 0) return;
+            const color = efecto < 0 ? 'rgba(57,255,20,0.4)' : 'rgba(255,215,0,0.4)';
+            for (let i = 0; i < rastro.length; i++) {
+                const p = rastro[i];
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function dibujarBalon() {
+            ctx.fillStyle = 'rgba(0,0,0,0.25)';
+            ctx.beginPath();
+            ctx.ellipse(balon.x + 3, balon.y + 5, 9, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(balon.x, balon.y, balon.r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(balon.x - 3, balon.y - 3, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function dibujarHUD() {
+            ctx.font = 'bold 16px Courier New';
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#39ff14';
+            ctx.shadowColor = '#39ff14';
+            ctx.shadowBlur = 8;
+            ctx.fillText('NIVEL ' + nivel, 15, 25);
+            ctx.shadowBlur = 0;
+
+            ctx.textAlign = 'center';
+            ctx.fillText('GOLES ' + goles + '/' + golesNecesarios, ANCHO / 2, 25);
+
+            ctx.textAlign = 'right';
+            ctx.fillStyle = tiempo <= 10 ? '#ff4444' : '#39ff14';
+            ctx.shadowColor = ctx.fillStyle;
+            ctx.shadowBlur = 8;
+            ctx.fillText('TIEMPO ' + Math.ceil(tiempo), ANCHO - 15, 25);
+            ctx.shadowBlur = 0;
+
+            ctx.textAlign = 'left';
+            ctx.font = 'bold 13px Courier New';
+            ctx.fillStyle = '#7FFF00';
+            ctx.fillText('PENAL (G): ' + penales + '   LIBRE (L): ' + libres, 15, 48);
+
+            ctx.textAlign = 'right';
+            ctx.fillStyle = '#00ccff';
+            ctx.fillText(efecto < 0 ? 'EFECTO: <-- (Y)' : efecto > 0 ? 'EFECTO: --> (T)' : 'EFECTO: NONE', ANCHO - 15, 48);
+        }
+
+        function dibujarMensaje() {
+            if (mensaje.tiempo <= 0) return;
+            ctx.font = 'bold 46px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#39ff14';
+            ctx.shadowColor = '#39ff14';
+            ctx.shadowBlur = 20;
+            ctx.fillText(mensaje.texto, ANCHO / 2, ALTO / 2 - 30);
+            ctx.shadowBlur = 0;
+        }
+
+        function dibujarParticulas() {
+            for (const p of particulas) {
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x - 3, p.y - 3, 6, 6);
+            }
+        }
+
+        function dibujarPausa() {
+            if (!pausa) return;
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(0, 0, ANCHO, ALTO);
+            ctx.font = 'bold 40px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#39ff14';
+            ctx.shadowColor = '#39ff14';
+            ctx.shadowBlur = 15;
+            ctx.fillText('PAUSA', ANCHO / 2, ALTO / 2);
+            ctx.shadowBlur = 0;
+        }
+
+        function dibujar() {
+            dibujarCancha();
+            dibujarMeta();
+            dibujarDefensores();
+            dibujarJugador(portero.x, KEEPER_Y, '#ffd700', '#8a6d00', '1');
+            dibujarJugador(jugador.x, jugador.y, '#39ff14', '#0f5c06', '10');
+            dibujarRastro();
+            dibujarBalon();
+            dibujarParticulas();
+            dibujarHUD();
+            dibujarMensaje();
+            dibujarPausa();
+        }
+
+        function bucle(tiempo) {
+            const delta = Math.min((tiempo - ultimoTiempo) / 16.66, 2);
+            ultimoTiempo = tiempo;
+
+            if (estado === 'jugando' && !pausa) {
+                for (let i = 0; i < Math.round(delta); i++) update();
+            } else if (estado !== 'transicion') {
+                for (let i = 0; i < Math.round(delta); i++) {
+                    for (const d of defensores) {
+                        d.y += d.vel * d.dir;
+                        if (d.y > DEF_Y_MAX) { d.y = DEF_Y_MAX; d.dir = -1; }
+                        if (d.y < DEF_Y_MIN) { d.y = DEF_Y_MIN; d.dir = 1; }
+                    }
+                }
+            }
+            dibujar();
+            animId = requestAnimationFrame(bucle);
+        }
+
+        dibujar();
+    </script>
+</body>
+</html>
