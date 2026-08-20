@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cartel Wars - Gamer Zone</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #000000;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .marco {
+            position: relative;
+            border: 3px solid #39ff14;
+            box-shadow: 0 0 20px rgba(57, 255, 20, 0.5);
+        }
+
+        canvas {
+            display: block;
+            cursor: crosshair;
+        }
+
+        .capa {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.88);
+            color: #39ff14;
+            text-align: center;
+            gap: 16px;
+            padding: 20px;
+        }
+
+        .oculto {
+            display: none;
+        }
+
+        .titulo-juego {
+            font-size: 44px;
+            letter-spacing: 6px;
+            text-shadow: 0 0 15px rgba(57, 255, 20, 0.8);
+            animation: parpadeo 1.5s infinite;
+        }
+
+        .instrucciones {
+            color: #7FFF00;
+            font-size: 15px;
+            line-height: 1.9;
+            letter-spacing: 1px;
+        }
+
+        .instrucciones b {
+            color: #ffffff;
+        }
+
+        .boton {
+            padding: 14px 32px;
+            color: #fff;
+            background: transparent;
+            border: 2px solid #39ff14;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            box-shadow: 0 0 8px rgba(57, 255, 20, 0.6);
+            cursor: pointer;
+            transition: all 0.25s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .boton:hover {
+            background: #39ff14;
+            color: #000;
+            transform: translateY(-3px);
+            box-shadow: 0 0 25px rgba(57, 255, 20, 0.9);
+        }
+
+        .boton:active {
+            transform: scale(0.95);
+        }
+
+        .boton:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .grupo-botones {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .grupo-botones.tienda {
+            max-width: 720px;
+        }
+
+        .boton-pequeno {
+            padding: 10px 16px;
+            font-size: 14px;
+            letter-spacing: 2px;
+        }
+
+        @keyframes parpadeo {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+    </style>
+</head>
+<body>
+    <div class="marco">
+        <canvas id="cancha" width="900" height="600"></canvas>
+
+        <div class="capa" id="pantalla-inicio">
+            <h1 class="titulo-juego">CARTEL WARS</h1>
+            <p class="instrucciones">
+                Tu banda rival te declaro la guerra.<br>
+                Completa las <b>misiones</b> para ganar dinero y comprar armas.<br><br>
+                <b>MOVIMIENTO:</b> flechas o W A S D<br>
+                <b>APUNTAR:</b> mouse &nbsp; <b>DISPARAR:</b> clic<br>
+                <b>ARMAS:</b> teclas 1 - 6<br><br>
+                MISIONES: entrega paquetes y elimina a los capos rivales.<br>
+                Cada mision es mas peligrosa!
+            </p>
+            <button class="boton" id="btn-jugar">Empezar</button>
+        </div>
+
+        <div class="capa oculto" id="pantalla-shop">
+            <h1 class="titulo-juego">ARMERIA</h1>
+            <p class="instrucciones" id="texto-recompensa">MISION COMPLETA</p>
+            <p class="instrucciones">Dinero: <b id="texto-dinero">$0</b></p>
+            <div class="grupo-botones tienda">
+                <button class="boton boton-pequeno" id="btn-arm-pistola">PISTOLA</button>
+                <button class="boton boton-pequeno" id="btn-arm-subfusil">SUBFUSIL $200</button>
+                <button class="boton boton-pequeno" id="btn-arm-fusil">FUSIL $300</button>
+                <button class="boton boton-pequeno" id="btn-arm-escopeta">ESCOPETA $350</button>
+                <button class="boton boton-pequeno" id="btn-arm-francotirador">FRANCOTIRADOR $500</button>
+                <button class="boton boton-pequeno" id="btn-arm-metralleta">METRALLETA $600</button>
+                <button class="boton boton-pequeno" id="btn-vida">+50 VIDA $100</button>
+            </div>
+            <button class="boton" id="btn-siguiente">Siguiente mision</button>
+        </div>
+
+        <div class="capa oculto" id="pantalla-gameover">
+            <h1 class="titulo-juego">ELIMINADO</h1>
+            <p class="instrucciones" id="texto-final">Misiones: 0</p>
+            <div class="grupo-botones">
+                <button class="boton" id="btn-reintentar">Reintentar</button>
+                <a class="boton" href="menu.html">Volver al menu</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('cancha');
+        const ctx = canvas.getContext('2d');
+        const ANCHO = 900, ALTO = 600;
+
+        const ARMAS = {
+            pistola:       { nombre: 'PISTOLA', tecla: '1', precio: 0, dano: 12, cadencia: 16, dispersion: 0.03, velBala: 9, perdigones: 1 },
+            subfusil:      { nombre: 'SUBFUSIL', tecla: '2', precio: 200, dano: 8, cadencia: 5, dispersion: 0.08, velBala: 10, perdigones: 1 },
+            fusil:         { nombre: 'FUSIL', tecla: '3', precio: 300, dano: 16, cadencia: 9, dispersion: 0.05, velBala: 11, perdigones: 1 },
+            escopeta:      { nombre: 'ESCOPETA', tecla: '4', precio: 350, dano: 9, cadencia: 34, dispersion: 0.32, velBala: 9, perdigones: 5 },
+            francotirador: { nombre: 'FRANCOTIRADOR', tecla: '5', precio: 500, dano: 45, cadencia: 40, dispersion: 0, velBala: 16, perdigones: 1 },
+            metralleta:    { nombre: 'METRALLETA', tecla: '6', precio: 600, dano: 6, cadencia: 3, dispersion: 0.12, velBala: 9.5, perdigones: 1 }
+        };
+
+        const TIPOS = {
+            basico: { nombre: 'SICARIO', hp: 30, vel: 1.3, dano: 8, cadencia: 45, r: 14, color: '#e84a2a', recompensa: 8 },
+            rifle:  { nombre: 'RIFLERO', hp: 22, vel: 1.7, dano: 6, cadencia: 22, r: 13, color: '#ff8800', recompensa: 12 },
+            pesado: { nombre: 'PESADO', hp: 95, vel: 0.9, dano: 14, cadencia: 65, r: 19, color: '#7a1f0d', recompensa: 20 },
+            rapido: { nombre: 'VELOZ', hp: 14, vel: 2.6, dano: 4, cadencia: 16, r: 11, color: '#ff4444', recompensa: 6 }
+        };
+
+        const jugador = { x: ANCHO / 2, y: ALTO / 2, r: 16, vel: 3.7, hp: 100, maxHp: 100, ang: 0 };
+        let armas = ['pistola'];
+        let armaActual = 0;
+        let dinero = 0;
+        let misionNum = 0;
+        let estado = 'inicio';
+        let animId = null;
+        let ultimoTiempo = 0;
+
+        let enemigos = [];
+        let balas = [];
+        let balasE = [];
+        let cajas = [];
+        let medkits = [];
+        let particulas = [];
+        let jefe = null;
+
+        let paquete = null;
+        let zona = null;
+        let paqueteCogido = false;
+        let misionTexto = '';
+        let recompensa = 0;
+
+        let mouseDown = false;
+        let objetivo = { x: ANCHO / 2, y: ALTO / 2 };
+        let enfriamiento = 0;
+        let danoCd = 0;
+        let tiempoSpawn = 30;
+        const teclas = {};
+
+        function generarCajas() {
+            cajas = [];
+            let intentos = 0;
+            while (cajas.length < 10 && intentos < 300) {
+                intentos++;
+                const c = {
+                    x: 40 + Math.random() * (ANCHO - 140),
+                    y: 40 + Math.random() * (ALTO - 140),
+                    w: 42, h: 42
+                };
+                if (Math.abs(c.x - ANCHO / 2) < 130 && Math.abs(c.y - ALTO / 2) < 130) continue;
+                if (Math.hypot(c.x - jugador.x, c.y - jugador.y) < 90) continue;
+                let colision = false;
+                for (const o of cajas) {
+                    if (c.x < o.x + o.w + 12 && c.x + c.w + 12 > o.x && c.y < o.y + o.h + 12 && c.y + c.h + 12 > o.y) {
+                        colision = true;
+                        break;
+                    }
+                }
+                if (!colision) cajas.push(c);
+            }
+        }
+
+        function posicionLibre() {
+            for (let i = 0; i < 40; i++) {
+                const x = 50 + Math.random() * (ANCHO - 100);
+                const y = 50 + Math.random() * (ALTO - 100);
+                if (Math.hypot(x - jugador.x, y - jugador.y) < 160) continue;
+                let ok = true;
+                for (const c of cajas) {
+                    if (x > c.x - 50 && x < c.x + c.w + 50 && y > c.y - 50 && y < c.y + c.h + 50) { ok = false; break; }
+                }
+                if (ok) return { x: x, y: y };
+            }
+            return { x: ANCHO / 2, y: 120 };
+        }
+
+        function elegirTipo() {
+            const lista = ['basico', 'rifle', 'pesado', 'rapido'];
+            const pesos = [
+                40,
+                25 + Math.min(10, misionNum),
+                15 + Math.min(18, misionNum * 2),
+                20 + Math.min(12, misionNum)
+            ];
+            let total = pesos.reduce((a, b) => a + b, 0);
+            let r = Math.random() * total;
+            for (let i = 0; i < lista.length; i++) {
+                r -= pesos[i];
+                if (r <= 0) return lista[i];
+            }
+            return 'basico';
+        }
+
+        function spawnEnemigo() {
+            const t = TIPOS[elegirTipo()];
+            const lado = Math.floor(Math.random() * 4);
+            let x, y;
+            if (lado === 0) { x = Math.random() * ANCHO; y = -30; }
+            else if (lado === 1) { x = ANCHO + 30; y = Math.random() * ALTO; }
+            else if (lado === 2) { x = Math.random() * ANCHO; y = ALTO + 30; }
+            else { x = -30; y = Math.random() * ALTO; }
+            if (Math.hypot(x - jugador.x, y - jugador.y) < 180) {
+                x = Math.max(40, Math.min(ANCHO - 40, jugador.x + (x > jugador.x ? -200 : 200)));
+                y = Math.max(40, Math.min(ALTO - 40, jugador.y + (y > jugador.y ? -200 : 200)));
+            }
+            enemigos.push({
+                x: x, y: y, tipo: t,
+                hp: t.hp + misionNum * 2, maxHp: t.hp + misionNum * 2,
+                vel: t.vel + Math.min(0.6, misionNum * 0.05),
+                dano: t.dano, cadencia: t.cadencia, cd: Math.random() * 20,
+                r: t.r, color: t.color, recompensa: t.recompensa, nombre: t.nombre
+            });
+        }
+
+        function spawnJefe() {
+            const lado = Math.floor(Math.random() * 4);
+            let x, y;
+            if (lado === 0) { x = Math.random() * ANCHO; y = -40; }
+            else if (lado === 1) { x = ANCHO + 40; y = Math.random() * ALTO; }
+            else if (lado === 2) { x = Math.random() * ANCHO; y = ALTO + 40; }
+            else { x = -40; y = Math.random() * ALTO; }
+            jefe = {
+                x: x, y: y, r: 26,
+                hp: 180 + misionNum * 25, maxHp: 180 + misionNum * 25,
+                vel: 1.0, dano: 10, cadencia: 28, cd: 20, recompensa: 300 + misionNum * 40
+            };
+        }
+
+        function iniciarMision() {
+            enemigos = [];
+            balas = [];
+            balasE = [];
+            medkits = [];
+            jefe = null;
+            paquete = null;
+            zona = null;
+            paqueteCogido = false;
+            tiempoSpawn = 20;
+            if (misionNum % 3 === 0) {
+                spawnJefe();
+                misionTexto = 'MISION ' + misionNum + ': ELIMINA AL CAPO RIVAL';
+            } else {
+                paquete = posicionLibre();
+                misionTexto = 'MISION ' + misionNum + ': RECOGE EL PAQUETE';
+            }
+            estado = 'jugando';
+        }
+
+        function iniciarJuego() {
+            document.getElementById('pantalla-inicio').classList.add('oculto');
+            document.getElementById('pantalla-gameover').classList.add('oculto');
+            document.getElementById('pantalla-shop').classList.add('oculto');
+            jugador.x = ANCHO / 2;
+            jugador.y = ALTO / 2;
+            jugador.hp = 100;
+            armas = ['pistola'];
+            armaActual = 0;
+            dinero = 0;
+            misionNum = 1;
+            generarCajas();
+            iniciarMision();
+            if (!animId) {
+                animId = requestAnimationFrame(bucle);
+                ultimoTiempo = performance.now();
+            }
+        }
+
+        function completarMision() {
+            recompensa = 150 + misionNum * 40;
+            if (misionNum % 3 === 0) recompensa += 250;
+            dinero += recompensa;
+            estado = 'shop';
+            actualizarTienda();
+            document.getElementById('texto-recompensa').textContent =
+                (misionNum % 3 === 0 ? 'CAPO ELIMINADO +$' : 'ENTREGA COMPLETA +$') + recompensa;
+            document.getElementById('pantalla-shop').classList.remove('oculto');
+        }
+
+        function matarEnemigo(idx) {
+            const e = enemigos[idx];
+            dinero += e.recompensa;
+            particulasFx(e.x, e.y, e.color, 14, 5);
+            if (Math.random() < 0.12) medkits.push({ x: e.x, y: e.y });
+            enemigos.splice(idx, 1);
+        }
+
+        function matarJefe() {
+            particulasFx(jefe.x, jefe.y, '#ffcc00', 30, 7);
+            jefe = null;
+            completarMision();
+        }
+
+        function gameOver() {
+            estado = 'gameover';
+            document.getElementById('texto-final').innerHTML =
+                'Misiones completadas: <b>' + (misionNum - 1) + '</b><br>Dinero ganado: <b>$' + dinero + '</b>';
+            document.getElementById('pantalla-gameover').classList.remove('oculto');
+        }
+
+        function seleccionarArma(key) {
+            const idx = armas.indexOf(key);
+            if (idx !== -1) armaActual = idx;
+        }
+
+        function colisionAABB(px, py, pr, c) {
+            const cx = Math.max(c.x, Math.min(px, c.x + c.w));
+            const cy = Math.max(c.y, Math.min(py, c.y + c.h));
+            return Math.hypot(px - cx, py - cy) < pr;
+        }
+
+        function resolverCaja(obj, r) {
+            for (const c of cajas) {
+                const cx = Math.max(c.x, Math.min(obj.x, c.x + c.w));
+                const cy = Math.max(c.y, Math.min(obj.y, c.y + c.h));
+                const dx = obj.x - cx, dy = obj.y - cy;
+                const dist = Math.hypot(dx, dy);
+                if (dist >= r) continue;
+                if (dist === 0) { obj.x = c.x - r; continue; }
+                const over = r - dist;
+                obj.x += (dx / dist) * over;
+                obj.y += (dy / dist) * over;
+            }
+        }
+
+        function particulasFx(x, y, color, n, v) {
+            for (let i = 0; i < n; i++) {
+                particulas.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * v,
+                    vy: (Math.random() - 0.5) * v,
+                    vida: 20 + Math.random() * 12,
+                    color: color
+                });
+            }
+        }
+
+        function update() {
+            let mx = 0, my = 0;
+            if (teclas['ArrowLeft'] || teclas['KeyA']) mx = -1;
+            if (teclas['ArrowRight'] || teclas['KeyD']) mx = 1;
+            if (teclas['ArrowUp'] || teclas['KeyW']) my = -1;
+            if (teclas['ArrowDown'] || teclas['KeyS']) my = 1;
+            const len = Math.hypot(mx, my) || 1;
+            jugador.x += (mx / len) * jugador.vel;
+            jugador.y += (my / len) * jugador.vel;
+            jugador.x = Math.max(16, Math.min(ANCHO - 16, jugador.x));
+            jugador.y = Math.max(16, Math.min(ALTO - 16, jugador.y));
+            resolverCaja(jugador, jugador.r);
+
+            jugador.ang = Math.atan2(objetivo.y - jugador.y, objetivo.x - jugador.x);
+
+            if (danoCd > 0) danoCd--;
+            if (enfriamiento > 0) enfriamiento--;
+
+            const arma = ARMAS[armas[armaActual]];
+            if (mouseDown && enfriamiento <= 0) {
+                for (let i = 0; i < arma.perdigones; i++) {
+                    const a = jugador.ang + (Math.random() - 0.5) * 2 * arma.dispersion;
+                    balas.push({
+                        x: jugador.x + Math.cos(jugador.ang) * 26,
+                        y: jugador.y + Math.sin(jugador.ang) * 26,
+                        vx: Math.cos(a) * arma.velBala,
+                        vy: Math.sin(a) * arma.velBala,
+                        dano: arma.dano, r: 4
+                    });
+                }
+                enfriamiento = arma.cadencia;
+            }
+
+            tiempoSpawn--;
+            const capEnemigos = 6 + Math.min(6, misionNum);
+            if (tiempoSpawn <= 0 && enemigos.length < capEnemigos) {
+                spawnEnemigo();
+                tiempoSpawn = Math.max(30, 95 - misionNum * 5);
+            }
+
+            for (let i = enemigos.length - 1; i >= 0; i--) {
+                const e = enemigos[i];
+                const dx = jugador.x - e.x, dy = jugador.y - e.y;
+                const dist = Math.hypot(dx, dy);
+                const stop = e.tipo === 'rapido' ? 45 : 150;
+                if (dist > stop) {
+                    e.x += (dx / dist) * e.vel;
+                    e.y += (dy / dist) * e.vel;
+                }
+                resolverCaja(e, e.r);
+                e.cd--;
+                if (dist < 340 && e.cd <= 0) {
+                    e.cd = e.cadencia;
+                    const a = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.28;
+                    balasE.push({
+                        x: e.x + Math.cos(a) * (e.r + 4),
+                        y: e.y + Math.sin(a) * (e.r + 4),
+                        vx: Math.cos(a) * 3.2, vy: Math.sin(a) * 3.2,
+                        dano: e.dano + Math.floor(misionNum * 1.2), r: 4
+                    });
+                }
+                if (Math.hypot(e.x - jugador.x, e.y - jugador.y) < e.r + jugador.r) {
+                    if (danoCd <= 0) {
+                        jugador.hp -= 6;
+                        danoCd = 30;
+                    }
+                    const pa = Math.atan2(jugador.y - e.y, jugador.x - e.x);
+                    jugador.x += Math.cos(pa) * 2.5;
+                    jugador.y += Math.sin(pa) * 2.5;
+                }
+                if (e.hp <= 0) matarEnemigo(i);
+            }
+
+            if (jefe) {
+                const dx = jugador.x - jefe.x, dy = jugador.y - jefe.y;
+                const dist = Math.hypot(dx, dy);
+                if (dist > 200) {
+                    jefe.x += (dx / dist) * jefe.vel;
+                    jefe.y += (dy / dist) * jefe.vel;
+                }
+                resolverCaja(jefe, jefe.r);
+                jefe.cd--;
+                if (dist < 420 && jefe.cd <= 0) {
+                    jefe.cd = jefe.cadencia;
+                    for (let i = -1; i <= 1; i++) {
+                        const a = Math.atan2(dy, dx) + i * 0.18;
+                        balasE.push({
+                            x: jefe.x + Math.cos(a) * (jefe.r + 4),
+                            y: jefe.y + Math.sin(a) * (jefe.r + 4),
+                            vx: Math.cos(a) * 3.6, vy: Math.sin(a) * 3.6,
+                            dano: jefe.dano, r: 5
+                        });
+                    }
+                }
+            }
+
+            for (let i = balas.length - 1; i >= 0; i--) {
+                const b = balas[i];
+                b.x += b.vx;
+                b.y += b.vy;
+                if (b.x < 0 || b.x > ANCHO || b.y < 0 || b.y > ALTO) { balas.splice(i, 1); continue; }
+                let impactado = false;
+                for (const c of cajas) {
+                    if (colisionAABB(b.x, b.y, b.r, c)) { impactado = true; break; }
+                }
+                if (impactado) { particulasFx(b.x, b.y, '#999999', 3, 2); balas.splice(i, 1); continue; }
+                if (jefe && Math.hypot(jefe.x - b.x, jefe.y - b.y) < jefe.r + b.r) {
+                    jefe.hp -= b.dano;
+                    particulasFx(b.x, b.y, '#ffcc00', 5, 4);
+                    balas.splice(i, 1);
+                    if (jefe.hp <= 0) matarJefe();
+                    continue;
+                }
+                let golpe = false;
+                for (let j = enemigos.length - 1; j >= 0; j--) {
+                    const e = enemigos[j];
+                    if (Math.hypot(e.x - b.x, e.y - b.y) < e.r + b.r) {
+                        e.hp -= b.dano;
+                        const sp = Math.hypot(b.vx, b.vy) || 1;
+                        e.x += (b.vx / sp) * 3;
+                        e.y += (b.vy / sp) * 3;
+                        particulasFx(b.x, b.y, e.color, 5, 4);
+                        if (e.hp <= 0) matarEnemigo(j);
+                        golpe = true;
+                        break;
+                    }
+                }
+                if (golpe) balas.splice(i, 1);
+            }
+
+            for (let i = balasE.length - 1; i >= 0; i--) {
+                const b = balasE[i];
+                b.x += b.vx;
+                b.y += b.vy;
+                if (b.x < 0 || b.x > ANCHO || b.y < 0 || b.y > ALTO) { balasE.splice(i, 1); continue; }
+                let impactado = false;
+                for (const c of cajas) {
+                    if (colisionAABB(b.x, b.y, b.r, c)) { impactado = true; break; }
+                }
+                if (impactado) { balasE.splice(i, 1); continue; }
+                if (danoCd <= 0 && Math.hypot(b.x - jugador.x, b.y - jugador.y) < jugador.r + b.r) {
+                    jugador.hp -= b.dano;
+                    danoCd = 20;
+                    particulasFx(jugador.x, jugador.y, '#ff4444', 8, 5);
+                    balasE.splice(i, 1);
+                    if (jugador.hp <= 0) { gameOver(); return; }
+                }
+            }
+
+            for (let i = medkits.length - 1; i >= 0; i--) {
+                const m = medkits[i];
+                if (Math.hypot(m.x - jugador.x, m.y - jugador.y) < jugador.r + 10) {
+                    jugador.hp = Math.min(jugador.maxHp, jugador.hp + 25);
+                    medkits.splice(i, 1);
+                }
+            }
+
+            if (misionNum % 3 !== 0) {
+                if (!paqueteCogido) {
+                    if (paquete && Math.hypot(paquete.x - jugador.x, paquete.y - jugador.y) < jugador.r + 14) {
+                        paqueteCogido = true;
+                        zona = posicionLibre();
+                        if (Math.hypot(zona.x - paquete.x, zona.y - paquete.y) < 260) {
+                            zona = { x: Math.max(60, Math.min(ANCHO - 60, ANCHO - zona.x)), y: Math.max(60, Math.min(ALTO - 60, ALTO - zona.y)) };
+                        }
+                        misionTexto = 'LLEVALO A LA ZONA DE ENTREGA';
+                    }
+                } else {
+                    if (zona && Math.hypot(zona.x - jugador.x, zona.y - jugador.y) < jugador.r + 22) {
+                        completarMision();
+                        return;
+                    }
+                }
+            }
+
+            for (let i = particulas.length - 1; i >= 0; i--) {
+                const pa = particulas[i];
+                pa.x += pa.vx;
+                pa.y += pa.vy;
+                pa.vida--;
+                if (pa.vida <= 0) particulas.splice(i, 1);
+            }
+        }
+
+        function dibujarFondo() {
+            ctx.fillStyle = '#232323';
+            ctx.fillRect(0, 0, ANCHO, ALTO);
+            ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x <= ANCHO; x += 50) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, ALTO);
+                ctx.stroke();
+            }
+            for (let y = 0; y <= ALTO; y += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(ANCHO, y);
+                ctx.stroke();
+            }
+        }
+
+        function dibujarCajas() {
+            for (const c of cajas) {
+                ctx.fillStyle = '#6b4a1f';
+                ctx.fillRect(c.x, c.y, c.w, c.h);
+                ctx.strokeStyle = '#3d2a0f';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(c.x, c.y, c.w, c.h);
+                ctx.strokeStyle = '#3d2a0f';
+                ctx.beginPath();
+                ctx.moveTo(c.x, c.y);
+                ctx.lineTo(c.x + c.w, c.y + c.h);
+                ctx.moveTo(c.x + c.w, c.y);
+                ctx.lineTo(c.x, c.y + c.h);
+                ctx.stroke();
+            }
+        }
+
+        function dibujarPaquete() {
+            if (misionNum % 3 === 0 || paqueteCogido) return;
+            const p = paquete;
+            if (!p) return;
+            const pulso = 0.6 + 0.4 * Math.sin(performance.now() / 120);
+            ctx.globalAlpha = pulso;
+            ctx.fillStyle = '#8a5a2b';
+            ctx.fillRect(p.x - 14, p.y - 11, 28, 22);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(p.x - 14, p.y - 11, 28, 22);
+            ctx.globalAlpha = 1;
+            ctx.font = 'bold 11px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#ffcc00';
+            ctx.fillText('PAQUETE', p.x, p.y - 18);
+        }
+
+        function dibujarZona() {
+            if (misionNum % 3 === 0 || !paqueteCogido || !zona) return;
+            ctx.strokeStyle = '#39ff14';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([8, 8]);
+            ctx.beginPath();
+            ctx.arc(zona.x, zona.y, 30, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = 'rgba(57,255,20,0.15)';
+            ctx.beginPath();
+            ctx.arc(zona.x, zona.y, 30, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.font = 'bold 13px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#39ff14';
+            ctx.fillText('ENTREGA', zona.x, zona.y - 38);
+        }
+
+        function dibujarJugador() {
+            ctx.save();
+            ctx.translate(jugador.x, jugador.y);
+            ctx.rotate(jugador.ang);
+
+            ctx.fillStyle = '#333';
+            ctx.strokeStyle = '#111';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(-12, -10, 24, 20, 5);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#1c1c1c';
+            ctx.beginPath();
+            ctx.roundRect(-11, -14, 22, 8, 4);
+            ctx.fill();
+            ctx.strokeStyle = '#39ff14';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-10, -10);
+            ctx.lineTo(-10, -8);
+            ctx.moveTo(0, -10);
+            ctx.lineTo(0, -8);
+            ctx.moveTo(10, -10);
+            ctx.lineTo(10, -8);
+            ctx.stroke();
+
+            ctx.fillStyle = '#eab08f';
+            ctx.beginPath();
+            ctx.arc(0, 6, 7, 0, Math.PI * 2);
+            ctx.fill();
+
+            const arma = ARMAS[armas[armaActual]];
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.moveTo(6, 0);
+            ctx.lineTo(26, 0);
+            ctx.stroke();
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(12, 0);
+            ctx.lineTo(24, 0);
+            ctx.stroke();
+            if (arma.nombre === 'ESCOPETA') {
+                ctx.strokeStyle = '#8a4b00';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(14, 0);
+                ctx.lineTo(24, 0);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function dibujarEnemigos() {
+            for (const e of enemigos) {
+                ctx.save();
+                ctx.translate(e.x, e.y);
+                const a = Math.atan2(jugador.y - e.y, jugador.x - e.x);
+                ctx.rotate(a);
+
+                ctx.fillStyle = e.color;
+                ctx.strokeStyle = '#7a1f0d';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(-11, -9, 22, 18, 5);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = '#1c1c1c';
+                ctx.beginPath();
+                ctx.roundRect(-10, -13, 20, 7, 3);
+                ctx.fill();
+
+                ctx.strokeStyle = '#222';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(6, 0);
+                ctx.lineTo(20, 0);
+                ctx.stroke();
+
+                ctx.restore();
+
+                if (e.hp < e.maxHp) {
+                    ctx.fillStyle = '#333';
+                    ctx.fillRect(e.x - 14, e.y - e.r - 12, 28, 4);
+                    ctx.fillStyle = '#ff4444';
+                    ctx.fillRect(e.x - 14, e.y - e.r - 12, 28 * (e.hp / e.maxHp), 4);
+                }
+            }
+
+            if (jefe) {
+                ctx.save();
+                ctx.translate(jefe.x, jefe.y);
+                const a = Math.atan2(jugador.y - jefe.y, jugador.x - jefe.x);
+                ctx.rotate(a);
+
+                ctx.fillStyle = '#8a1f1f';
+                ctx.strokeStyle = '#3a0000';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.roundRect(-18, -15, 36, 30, 8);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = '#111';
+                ctx.beginPath();
+                ctx.roundRect(-16, -22, 32, 12, 5);
+                ctx.fill();
+
+                ctx.fillStyle = '#e8e8e8';
+                ctx.beginPath();
+                ctx.arc(10, 0, 7, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#111';
+                ctx.beginPath();
+                ctx.arc(8, -2, 2, 0, Math.PI * 2);
+                ctx.arc(12, -2, 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+
+                ctx.fillStyle = '#333';
+                ctx.fillRect(jefe.x - 40, jefe.y - jefe.r - 20, 80, 8);
+                ctx.fillStyle = '#ffcc00';
+                ctx.fillRect(jefe.x - 40, jefe.y - jefe.r - 20, 80 * (jefe.hp / jefe.maxHp), 8);
+                ctx.strokeStyle = '#fff';
+                ctx.strokeRect(jefe.x - 40, jefe.y - jefe.r - 20, 80, 8);
+                ctx.font = 'bold 12px Courier New';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#ff4444';
+                ctx.fillText('CAPO RIVAL', jefe.x, jefe.y - jefe.r - 26);
+            }
+        }
+
+        function dibujarBalas() {
+            for (const b of balas) {
+                ctx.fillStyle = '#39ff14';
+                ctx.shadowColor = '#39ff14';
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+            for (const b of balasE) {
+                ctx.fillStyle = '#ff4444';
+                ctx.shadowColor = '#ff4444';
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        function dibujarMedkits() {
+            for (const m of medkits) {
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(m.x - 9, m.y - 7, 18, 14);
+                ctx.strokeStyle = '#333';
+                ctx.strokeRect(m.x - 9, m.y - 7, 18, 14);
+                ctx.fillStyle = '#ff0000';
+                ctx.fillRect(m.x - 6, m.y - 2, 12, 4);
+                ctx.fillRect(m.x - 2, m.y - 6, 4, 12);
+            }
+        }
+
+        function dibujarParticulas() {
+            for (const pa of particulas) {
+                ctx.globalAlpha = Math.max(0, pa.vida / 20);
+                ctx.fillStyle = pa.color;
+                ctx.fillRect(pa.x - 3, pa.y - 3, 6, 6);
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        function dibujarHUD() {
+            ctx.fillStyle = 'rgba(0,0,0,0.55)';
+            ctx.fillRect(0, 0, ANCHO, 54);
+
+            ctx.fillStyle = '#333';
+            ctx.fillRect(15, 16, 180, 16);
+            ctx.fillStyle = jugador.hp > 40 ? '#39ff14' : '#ff4444';
+            ctx.fillRect(15, 16, 180 * (jugador.hp / jugador.maxHp), 16);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(15, 16, 180, 16);
+            ctx.font = 'bold 11px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#fff';
+            ctx.fillText(Math.ceil(jugador.hp) + '/' + jugador.maxHp, 105, 28);
+
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#ffcc00';
+            ctx.font = 'bold 15px Courier New';
+            ctx.fillText('$' + dinero, 210, 30);
+
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#39ff14';
+            ctx.font = 'bold 15px Courier New';
+            ctx.fillText(misionTexto, ANCHO / 2, 24);
+
+            ctx.textAlign = 'right';
+            ctx.fillStyle = '#00ccff';
+            ctx.fillText(ARMAS[armas[armaActual]].nombre + ' [' + ARMAS[armas[armaActual]].tecla + ']', ANCHO - 15, 30);
+        }
+
+        function dibujarMira() {
+            ctx.strokeStyle = '#39ff14';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(objetivo.x, objetivo.y, 8, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(objetivo.x - 12, objetivo.y);
+            ctx.lineTo(objetivo.x - 4, objetivo.y);
+            ctx.moveTo(objetivo.x + 4, objetivo.y);
+            ctx.lineTo(objetivo.x + 12, objetivo.y);
+            ctx.moveTo(objetivo.x, objetivo.y - 12);
+            ctx.lineTo(objetivo.x, objetivo.y - 4);
+            ctx.moveTo(objetivo.x, objetivo.y + 4);
+            ctx.lineTo(objetivo.x, objetivo.y + 12);
+            ctx.stroke();
+        }
+
+        function dibujar() {
+            dibujarFondo();
+            dibujarCajas();
+            dibujarZona();
+            dibujarPaquete();
+            dibujarEnemigos();
+            dibujarJugador();
+            dibujarMedkits();
+            dibujarBalas();
+            dibujarParticulas();
+            dibujarHUD();
+            dibujarMira();
+        }
+
+        function bucle(tiempo) {
+            const delta = Math.min((tiempo - ultimoTiempo) / 16.66, 2);
+            ultimoTiempo = tiempo;
+            if (estado === 'jugando') {
+                for (let i = 0; i < Math.round(delta); i++) update();
+            }
+            dibujar();
+            animId = requestAnimationFrame(bucle);
+        }
+
+        function actualizarTienda() {
+            document.getElementById('texto-dinero').textContent = '$' + dinero;
+            for (const key of Object.keys(ARMAS)) {
+                const btn = document.getElementById('btn-arm-' + key);
+                if (armas.indexOf(key) !== -1) {
+                    btn.textContent = ARMAS[key].nombre + ' COMPRADO';
+                    btn.disabled = true;
+                } else {
+                    btn.textContent = ARMAS[key].nombre + ' $' + ARMAS[key].precio;
+                    btn.disabled = false;
+                }
+            }
+            const btnVida = document.getElementById('btn-vida');
+            btnVida.textContent = '+50 VIDA $100';
+            btnVida.disabled = false;
+        }
+
+        function comprarArma(key) {
+            if (armas.indexOf(key) !== -1) return;
+            const precio = ARMAS[key].precio;
+            if (dinero >= precio) {
+                dinero -= precio;
+                armas.push(key);
+                armaActual = armas.length - 1;
+                actualizarTienda();
+            }
+        }
+
+        document.addEventListener('keydown', e => {
+            const k = e.code || '';
+            teclas[k] = true;
+            if (k.startsWith('Arrow')) e.preventDefault();
+            if (k === 'Digit1') seleccionarArma('pistola');
+            if (k === 'Digit2') seleccionarArma('subfusil');
+            if (k === 'Digit3') seleccionarArma('fusil');
+            if (k === 'Digit4') seleccionarArma('escopeta');
+            if (k === 'Digit5') seleccionarArma('francotirador');
+            if (k === 'Digit6') seleccionarArma('metralleta');
+        });
+        document.addEventListener('keyup', e => { teclas[e.code] = false; });
+
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+        window.addEventListener('mousemove', e => {
+            const rect = canvas.getBoundingClientRect();
+            objetivo.x = e.clientX - rect.left;
+            objetivo.y = e.clientY - rect.top;
+        });
+        window.addEventListener('mousedown', e => {
+            if (e.button === 0) mouseDown = true;
+        });
+        window.addEventListener('mouseup', e => {
+            if (e.button === 0) mouseDown = false;
+        });
+
+        document.getElementById('btn-jugar').addEventListener('click', iniciarJuego);
+        document.getElementById('btn-reintentar').addEventListener('click', iniciarJuego);
+        document.getElementById('btn-siguiente').addEventListener('click', () => {
+            document.getElementById('pantalla-shop').classList.add('oculto');
+            misionNum++;
+            iniciarMision();
+        });
+
+        for (const key of Object.keys(ARMAS)) {
+            document.getElementById('btn-arm-' + key).addEventListener('click', () => comprarArma(key));
+        }
+        document.getElementById('btn-vida').addEventListener('click', () => {
+            if (dinero >= 100 && jugador.hp < jugador.maxHp) {
+                dinero -= 100;
+                jugador.hp = Math.min(jugador.maxHp, jugador.hp + 50);
+                actualizarTienda();
+            }
+        });
+
+        dibujar();
+    </script>
+</body>
+</html>
