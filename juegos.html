@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Porkilas Escape - Gamer Zone</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #000000;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .marco {
+            position: relative;
+            border: 3px solid #39ff14;
+            box-shadow: 0 0 20px rgba(57, 255, 20, 0.5);
+        }
+
+        canvas {
+            display: block;
+            cursor: pointer;
+        }
+
+        .capa {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.85);
+            color: #39ff14;
+            text-align: center;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .oculto {
+            display: none;
+        }
+
+        .titulo-juego {
+            font-size: 46px;
+            letter-spacing: 6px;
+            text-shadow: 0 0 15px rgba(57, 255, 20, 0.8);
+            animation: parpadeo 1.5s infinite;
+        }
+
+        .instrucciones {
+            color: #7FFF00;
+            font-size: 15px;
+            line-height: 1.9;
+            letter-spacing: 1px;
+        }
+
+        .instrucciones b {
+            color: #ffffff;
+        }
+
+        .boton {
+            padding: 16px 40px;
+            color: #fff;
+            background: transparent;
+            border: 2px solid #39ff14;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 20px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            box-shadow: 0 0 8px rgba(57, 255, 20, 0.6);
+            cursor: pointer;
+            transition: all 0.25s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .boton:hover {
+            background: #39ff14;
+            color: #000;
+            transform: translateY(-3px);
+            box-shadow: 0 0 25px rgba(57, 255, 20, 0.9);
+        }
+
+        .boton:active {
+            transform: scale(0.95);
+        }
+
+        .grupo-botones {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        @keyframes parpadeo {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+    </style>
+</head>
+<body>
+    <div class="marco">
+        <canvas id="cancha" width="800" height="500"></canvas>
+
+        <div class="capa" id="pantalla-inicio">
+            <h1 class="titulo-juego">PORKILAS ESCAPE</h1>
+            <p class="instrucciones">
+                <b>PORKILAS</b> robo un pan con chancho y ahora la policia lo persigue!<br><br>
+                <b>MOVIMIENTO:</b> flechas o teclas W A S D<br>
+                <b>NITRO:</b> mantén presionada la barra ESPACIO<br>
+                <b>OBJETIVO:</b> escapa de la policia el mayor tiempo posible.<br>
+                Cada 100 metros la persecucion sube de nivel:<br>
+                llegan mas patrullas y son mas rapidas.<br>
+                Si te atrapan, se acabo.
+            </p>
+            <button class="boton" id="btn-jugar">Escapar!</button>
+        </div>
+
+        <div class="capa oculto" id="pantalla-gameover">
+            <h1 class="titulo-juego">CAPTURADO!</h1>
+            <p class="instrucciones" id="texto-final">Distancia escapada: 0 m</p>
+            <div class="grupo-botones">
+                <button class="boton" id="btn-reintentar">Reintentar</button>
+                <a class="boton" href="menu.html">Volver al menu</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('cancha');
+        const ctx = canvas.getContext('2d');
+        const ANCHO = 800, ALTO = 500;
+
+        const VEL_BASE = 3.8;
+        const VEL_NITRO = 7.0;
+
+        const jugador = { x: 400, y: 420, ang: -Math.PI / 2, r: 20 };
+        const teclas = {};
+
+        let nivel = 1;
+        let distancia = 0;
+        let policias = [];
+        let particulas = [];
+        let nitro = 100;
+        let estado = 'inicio';
+        let animId = null;
+        let ultimoTiempo = 0;
+        let lucesTiempo = 0;
+        let mensajeNivel = { texto: '', tiempo: 0 };
+
+        const NOMBRES_POLICIA = ['POLICIA', 'PATOLLA', 'RADAR', 'SIRENA'];
+
+        document.addEventListener('keydown', e => {
+            const k = e.code || '';
+            teclas[k] = true;
+            if (k === 'Space' || k.startsWith('Arrow')) e.preventDefault();
+        });
+        document.addEventListener('keyup', e => { teclas[e.code] = false; });
+
+        document.getElementById('btn-jugar').addEventListener('click', e => { e.stopPropagation(); iniciarJuego(); });
+        document.getElementById('btn-reintentar').addEventListener('click', e => { e.stopPropagation(); iniciarJuego(); });
+
+        function spawnPolicia() {
+            const lado = Math.floor(Math.random() * 4);
+            let x, y;
+            if (lado === 0) { x = Math.random() * ANCHO; y = -50; }
+            else if (lado === 1) { x = ANCHO + 50; y = Math.random() * ALTO; }
+            else if (lado === 2) { x = Math.random() * ANCHO; y = ALTO + 50; }
+            else { x = -50; y = Math.random() * ALTO; }
+            if (Math.hypot(x - jugador.x, y - jugador.y) < 180) {
+                x = Math.max(50, Math.min(ANCHO - 50, jugador.x + (x > jugador.x ? -180 : 180)));
+                y = Math.max(50, Math.min(ALTO - 50, jugador.y + (y > jugador.y ? -180 : 180)));
+            }
+            policias.push({
+                x: x, y: y, ang: Math.atan2(jugador.y - y, jugador.x - x),
+                vel: 2.0 + nivel * 0.42,
+                radio: 20,
+                nombre: NOMBRES_POLICIA[Math.floor(Math.random() * NOMBRES_POLICIA.length)]
+            });
+        }
+
+        function iniciarJuego() {
+            document.getElementById('pantalla-inicio').classList.add('oculto');
+            document.getElementById('pantalla-gameover').classList.add('oculto');
+            nivel = 1;
+            distancia = 0;
+            nitro = 100;
+            policias = [];
+            particulas = [];
+            jugador.x = 400;
+            jugador.y = 420;
+            jugador.ang = -Math.PI / 2;
+            spawnPolicia();
+            spawnPolicia();
+            estado = 'jugando';
+            mensajeNivel = { texto: 'ESCAPA!', tiempo: 80 };
+            if (!animId) {
+                animId = requestAnimationFrame(bucle);
+                ultimoTiempo = performance.now();
+            }
+        }
+
+        function update() {
+            let mx = 0, my = 0;
+            if (teclas['ArrowLeft'] || teclas['KeyA']) mx = -1;
+            if (teclas['ArrowRight'] || teclas['KeyD']) mx = 1;
+            if (teclas['ArrowUp'] || teclas['KeyW']) my = -1;
+            if (teclas['ArrowDown'] || teclas['KeyS']) my = 1;
+            const len = Math.hypot(mx, my) || 1;
+
+            if (mx !== 0 || my !== 0) {
+                const objetivo = Math.atan2(my / len, mx / len);
+                let angDif = objetivo - jugador.ang;
+                while (angDif > Math.PI) angDif -= Math.PI * 2;
+                while (angDif < -Math.PI) angDif += Math.PI * 2;
+                jugador.ang += angDif * 0.25;
+            }
+
+            const usarNitro = teclas['Space'] && nitro > 0;
+            const vel = usarNitro ? VEL_NITRO : VEL_BASE;
+            if (usarNitro) {
+                nitro = Math.max(0, nitro - 0.9);
+                humo(jugador.x, jugador.y);
+            } else {
+                nitro = Math.min(100, nitro + 0.5);
+            }
+
+            jugador.x += (mx / len) * vel;
+            jugador.y += (my / len) * vel;
+            jugador.x = Math.max(26, Math.min(ANCHO - 26, jugador.x));
+            jugador.y = Math.max(26, Math.min(ALTO - 26, jugador.y));
+
+            distancia += vel / 6;
+
+            const objetivoNivel = Math.floor(distancia / 100) + 1;
+            if (objetivoNivel > nivel) {
+                nivel = objetivoNivel;
+                if (policias.length < 8) spawnPolicia();
+                for (const p of policias) p.vel += 0.15;
+                mensajeNivel = { texto: 'NIVEL ' + nivel + ' // + ' + policias.length + ' PATRULLAS', tiempo: 90 };
+                explosion(jugador.x, jugador.y);
+            }
+
+            for (const p of policias) {
+                let objAng = Math.atan2(jugador.y - p.y, jugador.x - p.x);
+                for (const q of policias) {
+                    if (q === p) continue;
+                    const dx = p.x - q.x, dy = p.y - q.y;
+                    const d = Math.hypot(dx, dy);
+                    if (d < 50 && d > 0) objAng += Math.atan2(dy, dx) * 0.4;
+                }
+                let dif = objAng - p.ang;
+                while (dif > Math.PI) dif -= Math.PI * 2;
+                while (dif < -Math.PI) dif += Math.PI * 2;
+                p.ang += Math.max(-0.08, Math.min(0.08, dif));
+
+                p.vel = Math.min(2.0 + nivel * 0.42 + 0.6, p.vel + 0.008);
+                p.x += Math.cos(p.ang) * p.vel;
+                p.y += Math.sin(p.ang) * p.vel;
+
+                if (p.x < -60) p.x = ANCHO + 60;
+                if (p.x > ANCHO + 60) p.x = -60;
+                if (p.y < -60) p.y = ALTO + 60;
+                if (p.y > ALTO + 60) p.y = -60;
+            }
+
+            for (const p of policias) {
+                if (Math.hypot(p.x - jugador.x, p.y - jugador.y) < jugador.r + p.radio - 6) {
+                    estado = 'gameover';
+                    document.getElementById('texto-final').innerHTML =
+                        'Distancia escapada: <b>' + Math.floor(distancia) + ' m</b><br>Nivel de persecucion: <b>' + nivel + '</b>';
+                    document.getElementById('pantalla-gameover').classList.remove('oculto');
+                    return;
+                }
+            }
+
+            for (let i = particulas.length - 1; i >= 0; i--) {
+                const pa = particulas[i];
+                pa.x += pa.vx;
+                pa.y += pa.vy;
+                pa.vida--;
+                if (pa.vida <= 0) particulas.splice(i, 1);
+            }
+
+            if (mensajeNivel.tiempo > 0) mensajeNivel.tiempo--;
+        }
+
+        function humo(x, y) {
+            particulas.push({
+                x: x, y: y,
+                vx: (Math.random() - 0.5) * 3,
+                vy: (Math.random() - 0.5) * 3,
+                vida: 14,
+                color: Math.random() < 0.5 ? '#ffcc00' : '#ff6600'
+            });
+        }
+
+        function explosion(x, y) {
+            for (let i = 0; i < 16; i++) {
+                particulas.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 7,
+                    vy: (Math.random() - 0.5) * 7,
+                    vida: 30 + Math.random() * 15,
+                    color: Math.random() < 0.5 ? '#39ff14' : '#ffffff'
+                });
+            }
+        }
+
+        function dibujarFondo() {
+            ctx.fillStyle = '#141414';
+            ctx.fillRect(0, 0, ANCHO, ALTO);
+
+            ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([30, 50]);
+            ctx.lineDashOffset = -(performance.now() / 12) % 80;
+            for (let x = 0; x <= ANCHO; x += 80) {
+                ctx.beginPath();
+                ctx.moveTo(x + 40, 0);
+                ctx.lineTo(x + 40, ALTO);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+        }
+
+        function dibujarCarroPig() {
+            ctx.save();
+            ctx.translate(jugador.x, jugador.y);
+            ctx.rotate(jugador.ang);
+
+            ctx.fillStyle = '#ff69b4';
+            ctx.strokeStyle = '#8a2d5b';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(-20, -14, 40, 28, 7);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#b9e4ff';
+            ctx.beginPath();
+            ctx.roundRect(-9, -10, 18, 20, 4);
+            ctx.fill();
+            ctx.strokeStyle = '#8a2d5b';
+            ctx.stroke();
+
+            ctx.fillStyle = '#ff9fb8';
+            ctx.beginPath();
+            ctx.arc(18, 0, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(13, -8, 4, 0, Math.PI * 2);
+            ctx.arc(13, 8, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#e8739a';
+            ctx.beginPath();
+            ctx.arc(24, 0, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.fillRect(22, -2, 2, 2);
+            ctx.fillRect(26, -2, 2, 2);
+
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(15, -4, 1.5, 0, Math.PI * 2);
+            ctx.arc(15, 4, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+
+            ctx.font = 'bold 12px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#ff69b4';
+            ctx.shadowColor = '#ff69b4';
+            ctx.shadowBlur = 6;
+            ctx.fillText('PORKILAS', jugador.x, jugador.y - 26);
+            ctx.shadowBlur = 0;
+        }
+
+        function dibujarCarroPolicia(p) {
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.ang);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(-20, -14, 40, 28, 7);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#cfe8ff';
+            ctx.beginPath();
+            ctx.roundRect(-9, -10, 18, 20, 4);
+            ctx.fill();
+            ctx.strokeStyle = '#222';
+            ctx.stroke();
+
+            const on = Math.floor(lucesTiempo) % 2 === 0;
+            ctx.fillStyle = on ? '#ff3333' : '#3333ff';
+            ctx.beginPath();
+            ctx.arc(18, -6, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = on ? '#3333ff' : '#ff3333';
+            ctx.beginPath();
+            ctx.arc(18, 6, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#222';
+            ctx.font = 'bold 7px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillText(p.nombre, -10, 3);
+
+            ctx.restore();
+        }
+
+        function dibujarParticulas() {
+            for (const pa of particulas) {
+                ctx.globalAlpha = Math.max(0, pa.vida / 20);
+                ctx.fillStyle = pa.color;
+                ctx.fillRect(pa.x - 3, pa.y - 3, 6, 6);
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        function dibujarHUD() {
+            ctx.font = 'bold 16px Courier New';
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#39ff14';
+            ctx.shadowColor = '#39ff14';
+            ctx.shadowBlur = 8;
+            ctx.fillText('DISTANCIA ' + Math.floor(distancia) + ' m', 15, 25);
+            ctx.shadowBlur = 0;
+
+            ctx.textAlign = 'center';
+            ctx.fillText('NIVEL ' + nivel, ANCHO / 2, 25);
+
+            ctx.textAlign = 'right';
+            ctx.fillText('PATRULLAS ' + policias.length, ANCHO - 15, 25);
+
+            ctx.fillStyle = '#222';
+            ctx.fillRect(15, ALTO - 25, 150, 12);
+            ctx.fillStyle = nitro > 40 ? '#00ccff' : '#ff4444';
+            ctx.fillRect(15, ALTO - 25, 150 * nitro / 100, 12);
+            ctx.strokeStyle = '#39ff14';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(15, ALTO - 25, 150, 12);
+
+            ctx.textAlign = 'left';
+            ctx.font = 'bold 11px Courier New';
+            ctx.fillStyle = '#7FFF00';
+            ctx.fillText('NITRO (ESPACIO) ' + Math.floor(nitro) + '%', 172, ALTO - 15);
+        }
+
+        function dibujarMensaje() {
+            if (mensajeNivel.tiempo <= 0) return;
+            ctx.font = 'bold 34px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#ff69b4';
+            ctx.shadowColor = '#ff69b4';
+            ctx.shadowBlur = 18;
+            ctx.fillText(mensajeNivel.texto, ANCHO / 2, ALTO / 2 - 30);
+            ctx.shadowBlur = 0;
+        }
+
+        function dibujar() {
+            dibujarFondo();
+            for (const p of policias) dibujarCarroPolicia(p);
+            dibujarCarroPig();
+            dibujarParticulas();
+            dibujarHUD();
+            dibujarMensaje();
+        }
+
+        function bucle(tiempo) {
+            const delta = Math.min((tiempo - ultimoTiempo) / 16.66, 2);
+            ultimoTiempo = tiempo;
+            lucesTiempo += delta;
+
+            if (estado === 'jugando') {
+                for (let i = 0; i < Math.round(delta); i++) update();
+            }
+            dibujar();
+            animId = requestAnimationFrame(bucle);
+        }
+
+        dibujar();
+    </script>
+</body>
+</html>
