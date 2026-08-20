@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu de Juegos</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #000000;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .titulo {
+            color: #39ff14;
+            font-size: 60px;
+            letter-spacing: 6px;
+            text-shadow: 0 0 15px rgba(57, 255, 20, 0.8), 0 0 40px rgba(57, 255, 20, 0.5);
+            animation: parpadeo 2s infinite;
+        }
+
+        .subtitulo {
+            color: #7FFF00;
+            font-size: 16px;
+            letter-spacing: 3px;
+            margin-bottom: 50px;
+            opacity: 0.8;
+        }
+
+        @keyframes parpadeo {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .menu {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            width: 300px;
+        }
+
+        .boton {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 18px 30px;
+            color: #fff;
+            background: transparent;
+            border: 2px solid #39ff14;
+            border-radius: 8px;
+            text-decoration: none;
+            font-family: 'Courier New', monospace;
+            font-size: 20px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            box-shadow: 0 0 8px rgba(57, 255, 20, 0.6), inset 0 0 10px rgba(57, 255, 20, 0.15);
+            cursor: pointer;
+            transition: all 0.25s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .boton::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(57, 255, 20, 0.3), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .boton:hover {
+            background: #39ff14;
+            color: #000;
+            transform: translateY(-3px);
+            box-shadow: 0 0 25px rgba(57, 255, 20, 0.9);
+        }
+
+        .boton:hover::before {
+            left: 100%;
+        }
+
+        .boton:active {
+            transform: scale(0.95);
+        }
+
+        .pies {
+            color: #39ff14;
+            font-size: 12px;
+            margin-top: 50px;
+            opacity: 0.6;
+            letter-spacing: 2px;
+        }
+    </style>
+</head>
+<body>
+    <h1 class="titulo">GAMER ZONE</h1>
+    <p class="subtitulo">>> selecciona tu juego <<</p>
+
+    <div class="menu">
+        <a class="boton" href="juego.html">Futbol Goal</a>
+        <a class="boton" href="juegos.html">Porkilas Escape</a>
+        <a class="boton" href="juegotres.html">Cartel Wars</a>
+    </div>
+
+    <p class="pies">cargando modulos...</p>
+</body>
+</html>
